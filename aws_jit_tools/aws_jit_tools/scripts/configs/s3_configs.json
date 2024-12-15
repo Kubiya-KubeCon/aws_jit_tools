@@ -3,8 +3,8 @@
         "name": "data_lake_read",
         "description": "Grants read-only access to data lake buckets",
         "buckets": [
-            "company-data-lake-prod",
-            "company-data-lake-staging"
+            "baraks-buckets",
+            "baraks3test"
         ],
         "policy_template": "S3ReadOnlyPolicy",
         "session_duration": "PT1H"
