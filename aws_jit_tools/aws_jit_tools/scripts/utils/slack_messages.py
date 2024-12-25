@@ -1,3 +1,6 @@
+from typing import Dict, Any, Optional
+import json
+
 def format_duration(seconds: int) -> str:
     """
     Format duration in seconds to a human-readable string
