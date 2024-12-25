@@ -3,31 +3,10 @@
         "name": "data_lake_read",
         "description": "Grants read-only access to data lake buckets",
         "buckets": [
-            {
-                "name": "company-data-lake-prod",
-                "account_id": "992382703898"
-            },
-            {
-                "name": "company-data-lake-staging", 
-                "account_id": "992382703898"
-            }
+            "baraks-buckets",
+            "baraks3test"
         ],
-        "policy_template": {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "s3:GetObject",
-                        "s3:ListBucket"
-                    ],
-                    "Resource": [
-                        "arn:aws:s3:::{bucket_name}",
-                        "arn:aws:s3:::{bucket_name}/*"
-                    ]
-                }
-            ]
-        },
+        "policy_template": "S3ReadOnlyPolicy",
         "session_duration": "PT1H"
     }
 } 
