@@ -112,6 +112,7 @@ class AWSAccessHandler:
             requested_seconds = self.parse_iso8601_duration(requested_duration)
             max_seconds = self.parse_iso8601_duration(max_duration)
             print_progress(f"Requested duration {requested_duration}  maximum allowed duration of {max_duration}.", "⚠️")
+            print_progress(f"Env Var {os.environ.get('MAX_DURATION')}", "⚠️")
             if requested_seconds > max_seconds:
                 print_progress(f"Requested duration exceeds maximum allowed duration of {max_duration}. Using maximum duration.", "⚠️")
                 return max_duration
