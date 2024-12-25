@@ -363,4 +363,168 @@ class AWSAccessHandler:
         try:
             print_progress(f"Revoking access for {user_email} with permission set {permission_set_name}...", "🔄")
             
-            user = self.get_user_by_email(user_email
+            user = self.get_user_by_email(user_email)
+            if not user:
+                raise ValueError(f"User not found: {user_email}")
+
+            # Get permission set ARN
+            permission_set_arn = self.get_permission_set_arn(permission_set_name)
+            if not permission_set_arn:
+                raise ValueError(f"Permission set not found: {permission_set_name}")
+
+            # Revoke account assignment
+            response = self.sso_admin.delete_account_assignment(
+                InstanceArn=self.instance_arn,
+                TargetId=os.environ['AWS_ACCOUNT_ID'],
+                TargetType='AWS_ACCOUNT',
+                PermissionSetArn=permission_set_arn,
+                PrincipalType='USER',
+                PrincipalId=user['UserId']
+            )
+
+            print_progress(f"Access revoked successfully for {user_email}", "✅")
+
+            # Notify user
+            self.notifications.send_access_revoked(
+                account_id=os.environ['AWS_ACCOUNT_ID'],
+                permission_set=permission_set_name,
+                user_email=user_email
+            )
+
+        except Exception as e:
+            self._handle_error("Failed to revoke access", e)
+
+    def revoke_s3_access(self, user_email: str, bucket_name: str):
+        """Revoke S3 access from the user by updating the bucket policy."""
+        try:
+            print_progress(f"Revoking S3 access for {user_email} from bucket {bucket_name}...", "🔄")
+            
+            # Find user by email
+            user = self.get_user_by_email(user_email)
+            if not user:
+                raise ValueError(f"User not found: {user_email}")
+            
+            # Update bucket policy
+            success = self.update_bucket_policy(
+                bucket_name=bucket_name,
+                user_arn=user['Arn'],
+                grant_access=False
+            )
+            if not success:
+                raise ValueError("Failed to update bucket policy")
+
+            print_progress(f"S3 access revoked successfully for {user_email}", "✅")
+
+            # Notify user
+            self.notifications.send_s3_access_revoked(
+                user_email=user_email,
+                bucket_name=bucket_name
+            )
+
+        except Exception as e:
+            self._handle_error("Failed to revoke S3 access", e)
+
+    def update_bucket_policy(self, bucket_name: str, user_arn: str, grant_access: bool) -> bool:
+        """Update the bucket policy to grant or revoke access to a user."""
+        try:
+            s3 = self.session.client('s3')
+
+            # Get current bucket policy
+            try:
+                policy_response = s3.get_bucket_policy(Bucket=bucket_name)
+                policy = json.loads(policy_response['Policy'])
+            except s3.exceptions.NoSuchBucketPolicy:
+                # No existing policy, start with a new one
+                policy = {
+                    "Version": "2012-10-17",
+                    "Statement": []
+                }
+
+            # Define the statement ID to identify our policy
+            statement_id = f"JITAccess_{user_arn.split('/')[-1]}_{bucket_name}"
+
+            if grant_access:
+                # Add a statement to grant access
+                statement = {
+                    "Sid": statement_id,
+                    "Effect": "Allow",
+                    "Principal": {"AWS": user_arn},
+                    "Action": [
+                        "s3:GetObject",
+                        "s3:ListBucket"
+                    ],
+                    "Resource": [
+                        f"arn:aws:s3:::{bucket_name}",
+                        f"arn:aws:s3:::{bucket_name}/*"
+                    ]
+                }
+                # Remove any existing statement with the same Sid
+                policy['Statement'] = [stmt for stmt in policy['Statement'] if stmt.get('Sid') != statement_id]
+                policy['Statement'].append(statement)
+            else:
+                # Remove the statement that grants access
+                policy['Statement'] = [stmt for stmt in policy['Statement'] if stmt.get('Sid') != statement_id]
+
+            # Update the bucket policy
+            s3.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update bucket policy for bucket {bucket_name}: {e}")
+            return False
+
+def main():
+    """Main function to handle command line arguments and execute actions."""
+    parser = argparse.ArgumentParser(description='AWS Access Handler')
+    parser.add_argument('action', choices=['grant', 'revoke'], help='Action to perform')
+    parser.add_argument('--user-email', required=True, help='Email of the user')
+    parser.add_argument('--duration', default='PT1H', help='Duration for access (ISO8601 format, e.g., PT1H)')
+    parser.add_argument('--bucket-name', required=False, help='Name of the S3 bucket')
+    
+    args = parser.parse_args()
+    
+    print_progress("Starting AWS Access Handler...", "🚀")
+    
+    try:
+        handler = AWSAccessHandler()
+        
+        if args.action == 'grant':
+            if args.bucket_name:
+                # Handle S3 access
+                handler.grant_s3_access(
+                    user_email=args.user_email,
+                    bucket_name=args.bucket_name,
+                    policy_template=os.environ.get('POLICY_TEMPLATE', 'default'),
+                    duration=args.duration
+                )
+            else:
+                # Handle SSO access
+                handler.grant_access(
+                    user_email=args.user_email,
+                    permission_set_name=os.environ.get('PERMISSION_SET_NAME', 'DefaultPermissionSet'),
+                    requested_duration=args.duration,
+                    max_duration=os.environ.get('MAX_DURATION', 'PT1H')
+                )
+        else:  # revoke
+            if args.bucket_name:
+                # Handle S3 access revocation
+                handler.revoke_s3_access(
+                    user_email=args.user_email,
+                    bucket_name=args.bucket_name
+                )
+            else:
+                # Handle SSO access revocation
+                handler.revoke_access(
+                    user_email=args.user_email,
+                    permission_set_name=os.environ.get('PERMISSION_SET_NAME', 'DefaultPermissionSet')
+                )
+                
+    except Exception as e:
+        print_progress(f"Error: {str(e)}", "❌")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
+
+# Export the class
+__all__ = ['AWSAccessHandler']
