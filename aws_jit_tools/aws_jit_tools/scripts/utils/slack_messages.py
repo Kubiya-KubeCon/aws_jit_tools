@@ -109,3 +109,143 @@ def create_access_granted_blocks(account_id: str, permission_set: str, duration_
     ])
 
     return {"blocks": blocks}
+
+def create_access_expired_blocks(account_id: str, permission_set: str) -> Dict[str, Any]:
+    """Create Slack Block Kit message for access expiration notification."""
+    
+    return {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "⚠️ AWS Access Expired",
+                    "emoji": True
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"Your access to AWS account *{account_id}* with permission set *{permission_set}* has expired."
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Need to extend your access? Use the Kubiya JIT access tool to request new credentials."
+                }
+            }
+        ]
+    }
+
+def create_access_revoked_blocks(account_id: str, permission_set: str, user_email: str) -> Dict[str, Any]:
+    """Create Slack Block Kit message for access revocation notification."""
+    
+    return {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🔒 AWS Access Revoked",
+                    "emoji": True
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"Your access to AWS account *{account_id}* with permission set *{permission_set}* has been revoked."
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "If you believe this is a mistake, please contact the security team."
+                }
+            }
+        ]
+    }
+
+def create_s3_access_granted_blocks(account_id: str, user_email: str, 
+                                    policy_template: str, duration_seconds: int,
+                                    bucket_name: str) -> Dict[str, Any]:
+    """Create Slack message blocks for S3 access granted notification."""
+
+    duration_hours = duration_seconds / 3600
+
+    return {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🎉 S3 Access Granted! 🎉",
+                    "emoji": True
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"You've been granted *{policy_template}* access to S3 bucket *{bucket_name}*."
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Duration:*\n{duration_hours:.1f} hours"},
+                    {"type": "mrkdwn", "text": f"*User:*\n{user_email}"}
+                ]
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*How to Access the S3 Bucket:*\nYou can use your AWS credentials to access the bucket via AWS CLI, SDKs, or the AWS Console."
+                }
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {"type": "mrkdwn", "text": "⚠️ Remember to adhere to data security policies while accessing S3 resources."}
+                ]
+            }
+        ]
+    }
+
+def create_s3_access_revoked_blocks(user_email: str, bucket_name: str) -> Dict[str, Any]:
+    """Create Slack message blocks for S3 access revoked notification."""
+
+    return {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "🔒 S3 Access Revoked",
+                    "emoji": True
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"Your access to S3 bucket *{bucket_name}* has been revoked."
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "If you believe this is a mistake, please contact the security team."
+                }
+            }
+        ]
+    }
